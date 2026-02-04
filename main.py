@@ -13,21 +13,30 @@ sessions = {}
 @app.post("/detect-scam")
 def detect_scam(data: dict, x_api_key: str = Header(None)):
 
+    # 🔐 API KEY CHECK
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    session_id = data.get("sessionId")
-    message_text = data["message"]["text"]
+    # 🟢 HANDLE BOTH SIMPLE & STRUCTURED INPUT
+    if "message" in data and isinstance(data["message"], str):
+        # Honeypot Tester format
+        session_id = "tester-session"
+        message_text = data["message"]
+        history = []
+    else:
+        # Hackathon evaluation format
+        session_id = data.get("sessionId", "unknown-session")
+        message_text = data["message"]["text"]
+        history = data.get("conversationHistory", [])
 
-    history = data.get("conversationHistory", [])
-
-    # store session messages
+    # 🧠 STORE SESSION MEMORY
     if session_id not in sessions:
         sessions[session_id] = []
 
     sessions[session_id].append(message_text)
     total_messages = len(sessions[session_id])
 
+    # 🔍 SCAM CHECK
     scam = is_scam(message_text)
 
     if scam:
@@ -35,7 +44,7 @@ def detect_scam(data: dict, x_api_key: str = Header(None)):
         suspicious_words = get_suspicious_words(message_text)
         reply = generate_reply()
 
-        # Send mandatory callback
+        # 📡 SEND MANDATORY CALLBACK
         payload = {
             "sessionId": session_id,
             "scamDetected": True,

@@ -11,23 +11,28 @@ app = FastAPI()
 sessions = {}
 
 @app.post("/detect-scam")
-def detect_scam(data: dict, x_api_key: str = Header(None)):
+def detect_scam(data: dict = None, x_api_key: str = Header(None)):
 
     # 🔐 API KEY CHECK
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    # 🟢 HANDLE BOTH SIMPLE & STRUCTURED INPUT
-    if "message" in data and isinstance(data["message"], str):
-        # Honeypot Tester format
+    # 🟢 HANDLE EMPTY / SIMPLE / STRUCTURED INPUT
+
+    # Case 1: Tester sends EMPTY body
+    if not data:
+        session_id = "tester-session"
+        message_text = "test message"
+
+    # Case 2: Tester sends simple message
+    elif "message" in data and isinstance(data["message"], str):
         session_id = "tester-session"
         message_text = data["message"]
-        history = []
+
+    # Case 3: Hackathon structured body
     else:
-        # Hackathon evaluation format
         session_id = data.get("sessionId", "unknown-session")
         message_text = data["message"]["text"]
-        history = data.get("conversationHistory", [])
 
     # 🧠 STORE SESSION MEMORY
     if session_id not in sessions:

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from scam_detector import is_scam, get_suspicious_words
 from extractor import extract_info
 from agent import generate_reply
@@ -7,29 +7,34 @@ import requests
 API_KEY = "honeypot2026"
 app = FastAPI()
 
-# store session memory
 sessions = {}
 
 @app.post("/detect-scam")
-def detect_scam(data: dict = None, x_api_key: str = Header(None)):
+async def detect_scam(request: Request, x_api_key: str = Header(None)):
 
     # 🔐 API KEY CHECK
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    # 🟢 HANDLE EMPTY / SIMPLE / STRUCTURED INPUT
+    # 🟢 READ RAW JSON SAFELY
+    try:
+        data = await request.json()
+    except:
+        data = None
 
-    # Case 1: Tester sends EMPTY body
+    # 🟢 HANDLE ALL POSSIBLE INPUT TYPES
+
+    # 1) Empty body (tester)
     if not data:
         session_id = "tester-session"
         message_text = "test message"
 
-    # Case 2: Tester sends simple message
+    # 2) Simple body { "message": "text" }
     elif "message" in data and isinstance(data["message"], str):
         session_id = "tester-session"
         message_text = data["message"]
 
-    # Case 3: Hackathon structured body
+    # 3) Hackathon structured body
     else:
         session_id = data.get("sessionId", "unknown-session")
         message_text = data["message"]["text"]
@@ -49,7 +54,6 @@ def detect_scam(data: dict = None, x_api_key: str = Header(None)):
         suspicious_words = get_suspicious_words(message_text)
         reply = generate_reply()
 
-        # 📡 SEND MANDATORY CALLBACK
         payload = {
             "sessionId": session_id,
             "scamDetected": True,
